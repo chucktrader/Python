@@ -1,0 +1,114 @@
+{ ================================================================
+  KRAKEN CS — Stratégie MultiCharts (EasyLanguage)
+
+  CONFIGURATION OBLIGATOIRE dans les propriétés de la stratégie :
+    ✅ "Intra-bar order generation" : COCHÉ
+    ✅ Résolution du graphique     : 1 Minute
+    ✅ Données                     : Tick ou 1-seconde (via Kinetick)
+
+  LOGIQUE (identique au PineScript TradingView) :
+    Indicateurs : SAR (0.02 / 0.40), EMA35, EMA80, ATR(14)
+    Long   : Close crosses above SAR  ET  Close > EMA35
+    Short  : Close crosses below SAR  ET  Close < EMA80
+    Stop L : EntryPrice - ATR * 1.5   OU  Close <= Low[1]
+    Stop S : EntryPrice + ATR * 1.5   OU  Close >= High[1]
+    Heure  : Actif de 09h35 à 16h25, fermeture forcée à 16h24
+
+  DIFFÉRENCE CLÉE vs TradingView :
+    Avec "Intra-bar order generation" coché, "next bar at market"
+    signifie "prochain tick disponible" — l'ordre se place dans la
+    seconde qui suit le franchissement du SAR, pas à la fin de la
+    bougie 1-minute.
+================================================================ }
+
+Inputs:
+    SAR_Step(0.02),     { Pas du facteur d'accélération (AF step) }
+    SAR_MaxAF(0.40),    { Maximum du facteur d'accélération }
+    ATR_Length(14),     { Période ATR }
+    ATR_Mult(1.5),      { Multiplicateur ATR pour le stop loss }
+    Session_Start(935), { Début de session HHMM : 9h35 }
+    Session_End(1625),  { Fin de session HHMM   : 16h25 }
+    Force_Close(1624);  { Fermeture forcée HHMM : 16h24 }
+
+Variables:
+    MySAR(0),           { Valeur courante du Parabolic SAR }
+    MyEMA35(0),
+    MyEMA80(0),
+    MyATR(0),
+    LongStopPrice(0),   { Stop loss mémorisé pour position longue }
+    ShortStopPrice(0),  { Stop loss mémorisé pour position courte }
+    InSession(false),
+    IsForceClose(false);
+
+{ ── Calcul des indicateurs ────────────────────────────────────
+  Note : ParabolicSAR(Step, MaxAF, 0) — le 3e paramètre est le
+  facteur d'arrondi, laisser à 0.
+  Si votre version de MultiCharts utilise 2 paramètres, retirez le 0.
+──────────────────────────────────────────────────────────────── }
+MySAR   = ParabolicSAR(SAR_Step, SAR_MaxAF, 0);
+MyEMA35 = XAverage(Close, 35);
+MyEMA80 = XAverage(Close, 80);
+MyATR   = AvgTrueRange(ATR_Length);
+
+{ ── Conditions de temps ───────────────────────────────────── }
+InSession    = Time >= Session_Start and Time < Session_End;
+IsForceClose = Time >= Force_Close;
+
+{ ══════════════════════════════════════════════════════════════
+  BLOC 1 — Fermeture forcée à 16h24
+  (toujours en premier pour garantir la sortie de session)
+══════════════════════════════════════════════════════════════ }
+if IsForceClose then begin
+    if MarketPosition > 0 then
+        ExitLong("Fin Session") next bar at market;
+    if MarketPosition < 0 then
+        ExitShort("Fin Session") next bar at market;
+end;
+
+{ ══════════════════════════════════════════════════════════════
+  BLOC 2 — Mémoriser le stop à l'ouverture de la position
+  MarketPosition[1] = 0 signifie : "je n'avais pas de position
+  à la barre précédente" = première barre après l'entrée.
+══════════════════════════════════════════════════════════════ }
+if MarketPosition > 0 and MarketPosition[1] = 0 then
+    LongStopPrice = EntryPrice - MyATR * ATR_Mult;
+
+if MarketPosition < 0 and MarketPosition[1] = 0 then
+    ShortStopPrice = EntryPrice + MyATR * ATR_Mult;
+
+{ ══════════════════════════════════════════════════════════════
+  BLOC 3 — Sorties sur position active
+══════════════════════════════════════════════════════════════ }
+if MarketPosition > 0 then begin
+    { Stop ATR }
+    if Close <= LongStopPrice then
+        ExitLong("Stop ATR L") next bar at market;
+    { Breach du bas de la bougie précédente }
+    if Close <= Low[1] then
+        ExitLong("Stop Prev Low") next bar at market;
+end;
+
+if MarketPosition < 0 then begin
+    { Stop ATR }
+    if Close >= ShortStopPrice then
+        ExitShort("Stop ATR S") next bar at market;
+    { Breach du haut de la bougie précédente }
+    if Close >= High[1] then
+        ExitShort("Stop Prev High") next bar at market;
+end;
+
+{ ══════════════════════════════════════════════════════════════
+  BLOC 4 — Signaux d'entrée
+  "Close crosses above MySAR" = le prix actuel (tick courant en
+  mode intra-bar) vient de passer au-dessus du SAR.
+  "next bar at market" en mode intra-bar = prochain tick dispo.
+══════════════════════════════════════════════════════════════ }
+if InSession and MarketPosition = 0 then begin
+
+    if Close crosses above MySAR and Close > MyEMA35 then
+        Buy("SAR Long") next bar at market;
+
+    if Close crosses below MySAR and Close < MyEMA80 then
+        Sell Short("SAR Short") next bar at market;
+
+end;

@@ -23,8 +23,6 @@ TRADE_START_H, TRADE_START_M = 9, 35
 TRADE_END_H,   TRADE_END_M   = 16, 25
 CLOSE_ALL_H,   CLOSE_ALL_M   = 16, 24
 
-MIN_VOLUME = 350
-
 
 class KrakenCS(bt.Strategy):
     params = dict(
@@ -32,7 +30,6 @@ class KrakenCS(bt.Strategy):
         sar_max=0.4,    # max acceleration factor
         atr_length=14,
         atr_multiplier=1.5,
-        min_volume=MIN_VOLUME,
     )
     # Note: Backtrader's PSAR uses `af` as both the initial value and the step (= 0.02 each).
     # TradingView uses start=0.02 but increment=0.01 — a small difference in how fast the AF
@@ -87,9 +84,8 @@ class KrakenCS(bt.Strategy):
     # ------------------------------------------------------------------
 
     def next(self):
-        dt = self.data.datetime.datetime(0)
+        dt    = self.data.datetime.datetime(0)
         price = self.data.close[0]
-        volume_1m = self.data1.volume[0]
 
         # ── Force-close 1 minute before end ──────────────────────────
         if self._is_close_all_time(dt):
@@ -128,7 +124,7 @@ class KrakenCS(bt.Strategy):
                     self.close()
 
         # ── Entry signals (only when flat) ────────────────────────────
-        if not self.position and prev is not None and volume_1m > self.p.min_volume:
+        if not self.position and prev is not None:
             # Long: price crosses above SAR this second
             if prev <= sar_val and price > sar_val and price > ema35:
                 self.buy()

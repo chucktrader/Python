@@ -46,8 +46,12 @@ Variables:
     LongCross(false),
     ShortCross(false);
 
-{ ── Calcul des indicateurs ── }
-SARDummy = ParabolicSAR(SAR_Step, SAR_MaxAF, SARAfInit, SARTrans, SARPos, MySAR);
+{ ── Calcul des indicateurs ──
+  ORDRE des paramètres de sortie corrigé :
+    position 4 = oParClose  (valeur SAR)
+    position 5 = oPosition  (+1/-1)
+    position 6 = oTransition (1 = retournement) }
+SARDummy = ParabolicSAR(SAR_Step, SAR_MaxAF, SARAfInit, MySAR, SARPos, SARTrans);
 MyEMA35  = XAverage(Close, 35);
 MyEMA80  = XAverage(Close, 80);
 MyATR    = AvgTrueRange(ATR_Length);
@@ -61,10 +65,12 @@ IsForceClose = Time >= Force_Close;
   Désactive en mettant Debug = 0 dans les inputs. }
 if Debug = 1 and BarStatus = 2 and InSession then
     Print("Bar=", Date:8:0, " ", Time:4:0,
-          " | MySAR=", MySAR:10:5,
-          " | Close=", Close:10:5,
-          " | EMA35=", MyEMA35:10:5,
-          " | Pos=", MarketPosition:2:0);
+          " | MySAR=",   MySAR:10:5,
+          " | SARPos=",  SARPos:4:0,
+          " | SARTrn=",  SARTrans:4:0,
+          " | AfInit=",  SARAfInit:8:4,
+          " | Dummy=",   SARDummy:10:5,
+          " | Close=",   Close:10:5);
 
 { ── Détection explicite du franchissement tick par tick ──
   PrevClose / PrevSAR contiennent les valeurs du tick précédent.

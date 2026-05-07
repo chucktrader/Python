@@ -37,7 +37,8 @@ Inputs:
 
 Variables:
     MySAR(0),           { Valeur courante du Parabolic SAR (sortie) }
-    SARPos(0),          { Direction du SAR : +1 long / -1 short (sortie) }
+    SARPos(0),          { Direction : +1 long / -1 short (sortie) }
+    SARTrans(0),        { 1 si transition à cette barre, sinon 0 (sortie) }
     SARDummy(0),        { Valeur de retour de la fonction (ignorée) }
     MyEMA35(0),
     MyEMA80(0),
@@ -48,13 +49,16 @@ Variables:
     IsForceClose(false);
 
 { ── Calcul des indicateurs ────────────────────────────────────
-  Note : ParabolicSAR(High, Low, AfStep, AfLimit, oParClose, oPosition)
-  Les deux derniers paramètres sont des SORTIES passées par référence :
-    - MySAR  reçoit la valeur du SAR
-    - SARPos reçoit la direction (+1 long / -1 short)
-  La valeur de retour de la fonction est ignorée (SARDummy).
+  Signature MultiCharts :
+    ParabolicSAR(AfStep, AfLimit, AfInit, oTransition, oPosition, oParClose)
+  Entrées numériques :
+    AfStep, AfLimit, AfInit (= AfStep pour démarrer à 0.02)
+  Sorties par référence (variables simples obligatoires) :
+    SARTrans : 1 si transition à cette barre, sinon 0
+    SARPos   : direction (+1 long / -1 short)
+    MySAR    : valeur du SAR
 ──────────────────────────────────────────────────────────────── }
-SARDummy = ParabolicSAR(High, Low, SAR_Step, SAR_MaxAF, MySAR, SARPos);
+SARDummy = ParabolicSAR(SAR_Step, SAR_MaxAF, SAR_Step, SARTrans, SARPos, MySAR);
 MyEMA35  = XAverage(Close, 35);
 MyEMA80  = XAverage(Close, 80);
 MyATR    = AvgTrueRange(ATR_Length);

@@ -15,7 +15,7 @@
     Heure  : Actif de 09h35 à 16h25, fermeture forcée à 16h24
 
   DIFFÉRENCE CLÉE vs TradingView :
-    Avec "Intra-bar order generation" coché, "next bar at market"
+    Avec "Intra-bar order generation" coché, "next bar at open"
     signifie "prochain tick disponible" — l'ordre se place dans la
     seconde qui suit le franchissement du SAR, pas à la fin de la
     bougie 1-minute.
@@ -60,9 +60,9 @@ IsForceClose = Time >= Force_Close;
 ══════════════════════════════════════════════════════════════ }
 if IsForceClose then begin
     if MarketPosition > 0 then
-        ExitLong("Fin Session") next bar at market;
+        ExitLong("Fin Session") next bar at open;
     if MarketPosition < 0 then
-        ExitShort("Fin Session") next bar at market;
+        ExitShort("Fin Session") next bar at open;
 end;
 
 { ══════════════════════════════════════════════════════════════
@@ -82,33 +82,33 @@ if MarketPosition < 0 and MarketPosition[1] = 0 then
 if MarketPosition > 0 then begin
     { Stop ATR }
     if Close <= LongStopPrice then
-        ExitLong("Stop ATR L") next bar at market;
+        ExitLong("Stop ATR L") next bar at open;
     { Breach du bas de la bougie précédente }
     if Close <= Low[1] then
-        ExitLong("Stop Prev Low") next bar at market;
+        ExitLong("Stop Prev Low") next bar at open;
 end;
 
 if MarketPosition < 0 then begin
     { Stop ATR }
     if Close >= ShortStopPrice then
-        ExitShort("Stop ATR S") next bar at market;
+        ExitShort("Stop ATR S") next bar at open;
     { Breach du haut de la bougie précédente }
     if Close >= High[1] then
-        ExitShort("Stop Prev High") next bar at market;
+        ExitShort("Stop Prev High") next bar at open;
 end;
 
 { ══════════════════════════════════════════════════════════════
   BLOC 4 — Signaux d'entrée
   "Close crosses above MySAR" = le prix actuel (tick courant en
   mode intra-bar) vient de passer au-dessus du SAR.
-  "next bar at market" en mode intra-bar = prochain tick dispo.
+  "next bar at open" en mode intra-bar = prochain tick dispo.
 ══════════════════════════════════════════════════════════════ }
 if InSession and MarketPosition = 0 then begin
 
     if Close crosses above MySAR and Close > MyEMA35 then
-        Buy("SAR Long") next bar at market;
+        Buy("SAR Long") next bar at open;
 
     if Close crosses below MySAR and Close < MyEMA80 then
-        Sell Short("SAR Short") next bar at market;
+        Sell Short("SAR Short") next bar at open;
 
 end;

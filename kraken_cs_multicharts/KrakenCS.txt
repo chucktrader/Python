@@ -39,6 +39,7 @@ Variables:
     MySAR(0),           { Valeur courante du Parabolic SAR (sortie) }
     SARPos(0),          { Direction : +1 long / -1 short (sortie) }
     SARTrans(0),        { 1 si transition à cette barre, sinon 0 (sortie) }
+    SARAfInit(0.02),    { AF initial — passé par référence (refinput) }
     SARDummy(0),        { Valeur de retour de la fonction (ignorée) }
     MyEMA35(0),
     MyEMA80(0),
@@ -51,14 +52,17 @@ Variables:
 { ── Calcul des indicateurs ────────────────────────────────────
   Signature MultiCharts :
     ParabolicSAR(AfStep, AfLimit, AfInit, oTransition, oPosition, oParClose)
-  Entrées numériques :
-    AfStep, AfLimit, AfInit (= AfStep pour démarrer à 0.02)
-  Sorties par référence (variables simples obligatoires) :
-    SARTrans : 1 si transition à cette barre, sinon 0
-    SARPos   : direction (+1 long / -1 short)
-    MySAR    : valeur du SAR
+  Entrées numériques (NumericSimple) :
+    AfStep, AfLimit
+  Paramètres par référence (variables, pas Inputs) :
+    SARAfInit : AF courant, persistant entre les barres
+    SARTrans  : 1 si transition à cette barre, sinon 0
+    SARPos    : direction (+1 long / -1 short)
+    MySAR     : valeur du SAR
+  IMPORTANT : SARAfInit doit être une Variable (assignable),
+  pas un Input — sinon erreur "refinput expected".
 ──────────────────────────────────────────────────────────────── }
-SARDummy = ParabolicSAR(SAR_Step, SAR_MaxAF, SAR_Step, SARTrans, SARPos, MySAR);
+SARDummy = ParabolicSAR(SAR_Step, SAR_MaxAF, SARAfInit, SARTrans, SARPos, MySAR);
 MyEMA35  = XAverage(Close, 35);
 MyEMA80  = XAverage(Close, 80);
 MyATR    = AvgTrueRange(ATR_Length);

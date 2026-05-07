@@ -2,79 +2,77 @@
   KRAKEN CS — Stratégie MultiCharts (EasyLanguage)
 
   CONFIGURATION OBLIGATOIRE dans les propriétés de la stratégie :
-    ✅ "Intra-bar order generation" : COCHÉ
-    ✅ Résolution du graphique     : 1 Minute
-    ✅ Données                     : Tick ou 1-seconde (via Kinetick)
+    "Intra-bar order generation" : COCHÉ
+    Résolution du graphique     : 1 Minute
 
-  LOGIQUE (identique au PineScript TradingView) :
-    Indicateurs : SAR (0.02 / 0.40), EMA35, EMA80, ATR(14)
+  LOGIQUE :
     Long   : Close crosses above SAR  ET  Close > EMA35
     Short  : Close crosses below SAR  ET  Close < EMA80
     Stop L : EntryPrice - ATR * 1.5   OU  Close <= Low[1]
     Stop S : EntryPrice + ATR * 1.5   OU  Close >= High[1]
     Heure  : Actif de 09h35 à 16h25, fermeture forcée à 16h24
 
-  DIFFÉRENCE CLÉE vs TradingView :
-    Avec "Intra-bar order generation" coché, "next bar at market"
-    signifie "prochain tick disponible" — l'ordre se place dans la
-    seconde qui suit le franchissement du SAR, pas à la fin de la
-    bougie 1-minute.
-
-  NOTE EasyLanguage :
-    "next bar at market" = ordre marché exécuté à l'ouverture de
-    la prochaine barre (= prochain tick en intra-bar). La syntaxe
-    "next bar at open" est INVALIDE dans MultiCharts.
+  NOTE TECHNIQUE :
+    En mode IOG, l'opérateur "crosses above" compare la barre
+    précédente (pas le tick précédent). On utilise donc PrevClose
+    et PrevSAR pour détecter le franchissement tick par tick.
 ================================================================ }
 
 Inputs:
-    SAR_Step(0.02),     { Pas du facteur d'accélération (AF step) }
-    SAR_MaxAF(0.40),    { Maximum du facteur d'accélération }
-    ATR_Length(14),     { Période ATR }
-    ATR_Mult(1.5),      { Multiplicateur ATR pour le stop loss }
-    Session_Start(935), { Début de session HHMM : 9h35 }
-    Session_End(1625),  { Fin de session HHMM   : 16h25 }
-    Force_Close(1624);  { Fermeture forcée HHMM : 16h24 }
+    SAR_Step(0.02),
+    SAR_MaxAF(0.40),
+    ATR_Length(14),
+    ATR_Mult(1.5),
+    Session_Start(935),
+    Session_End(1625),
+    Force_Close(1624),
+    Debug(1);           { 1 = affiche Print de diagnostic, 0 = désactivé }
 
 Variables:
-    MySAR(0),           { Valeur courante du Parabolic SAR (sortie) }
-    SARPos(0),          { Direction : +1 long / -1 short (sortie) }
-    SARTrans(0),        { 1 si transition à cette barre, sinon 0 (sortie) }
-    SARAfInit(0.02),    { AF initial — passé par référence (refinput) }
-    SARDummy(0),        { Valeur de retour de la fonction (ignorée) }
+    MySAR(0),
+    SARPos(0),
+    SARTrans(0),
+    SARAfInit(0.02),
+    SARDummy(0),
+    PrevClose(0),       { Close du tick précédent pour détection du franchissement }
+    PrevSAR(0),         { MySAR du tick précédent }
     MyEMA35(0),
     MyEMA80(0),
     MyATR(0),
-    LongStopPrice(0),   { Stop loss mémorisé pour position longue }
-    ShortStopPrice(0),  { Stop loss mémorisé pour position courte }
+    LongStopPrice(0),
+    ShortStopPrice(0),
     InSession(false),
-    IsForceClose(false);
+    IsForceClose(false),
+    LongCross(false),
+    ShortCross(false);
 
-{ ── Calcul des indicateurs ────────────────────────────────────
-  Signature MultiCharts :
-    ParabolicSAR(AfStep, AfLimit, AfInit, oTransition, oPosition, oParClose)
-  Entrées numériques (NumericSimple) :
-    AfStep, AfLimit
-  Paramètres par référence (variables, pas Inputs) :
-    SARAfInit : AF courant, persistant entre les barres
-    SARTrans  : 1 si transition à cette barre, sinon 0
-    SARPos    : direction (+1 long / -1 short)
-    MySAR     : valeur du SAR
-  IMPORTANT : SARAfInit doit être une Variable (assignable),
-  pas un Input — sinon erreur "refinput expected".
-──────────────────────────────────────────────────────────────── }
+{ ── Calcul des indicateurs ── }
 SARDummy = ParabolicSAR(SAR_Step, SAR_MaxAF, SARAfInit, SARTrans, SARPos, MySAR);
 MyEMA35  = XAverage(Close, 35);
 MyEMA80  = XAverage(Close, 80);
 MyATR    = AvgTrueRange(ATR_Length);
 
-{ ── Conditions de temps ───────────────────────────────────── }
+{ ── Conditions de temps ── }
 InSession    = Time >= Session_Start and Time < Session_End;
 IsForceClose = Time >= Force_Close;
 
-{ ══════════════════════════════════════════════════════════════
-  BLOC 1 — Fermeture forcée à 16h24
-  (toujours en premier pour garantir la sortie de session)
-══════════════════════════════════════════════════════════════ }
+{ ── Diagnostic : affiche MySAR sur la première barre de session ──
+  Dans le PowerLanguage Output Bar, vérifie que MySAR est non-zéro.
+  Désactive en mettant Debug = 0 dans les inputs. }
+if Debug = 1 and BarStatus = 2 and InSession then
+    Print("Bar=", Date:8:0, " ", Time:4:0,
+          " | MySAR=", MySAR:10:5,
+          " | Close=", Close:10:5,
+          " | EMA35=", MyEMA35:10:5,
+          " | Pos=", MarketPosition:2:0);
+
+{ ── Détection explicite du franchissement tick par tick ──
+  PrevClose / PrevSAR contiennent les valeurs du tick précédent.
+  Au 1er bar PrevSAR = 0, pas de signal parasite. }
+LongCross  = PrevClose < PrevSAR and Close >= MySAR and MySAR > 0;
+ShortCross = PrevClose > PrevSAR and Close <= MySAR and MySAR > 0;
+
+{ ══ BLOC 1 — Fermeture forcée à 16h24 ══ }
 if IsForceClose then begin
     if MarketPosition > 0 then
         Sell("Fin Session L") next bar at market;
@@ -82,50 +80,39 @@ if IsForceClose then begin
         BuyToCover("Fin Session S") next bar at market;
 end;
 
-{ ══════════════════════════════════════════════════════════════
-  BLOC 2 — Mémoriser le stop à l'ouverture de la position
-  MarketPosition[1] = 0 signifie : "je n'avais pas de position
-  à la barre précédente" = première barre après l'entrée.
-══════════════════════════════════════════════════════════════ }
+{ ══ BLOC 2 — Mémoriser le stop à l'entrée en position ══ }
 if MarketPosition > 0 and MarketPosition[1] = 0 then
     LongStopPrice = EntryPrice - MyATR * ATR_Mult;
 
 if MarketPosition < 0 and MarketPosition[1] = 0 then
     ShortStopPrice = EntryPrice + MyATR * ATR_Mult;
 
-{ ══════════════════════════════════════════════════════════════
-  BLOC 3 — Sorties sur position active
-══════════════════════════════════════════════════════════════ }
+{ ══ BLOC 3 — Sorties sur position active ══ }
 if MarketPosition > 0 then begin
-    { Stop ATR }
     if Close <= LongStopPrice then
         Sell("Stop ATR L") next bar at market;
-    { Breach du bas de la bougie précédente }
     if Close <= Low[1] then
         Sell("Stop Prev Low") next bar at market;
 end;
 
 if MarketPosition < 0 then begin
-    { Stop ATR }
     if Close >= ShortStopPrice then
         BuyToCover("Stop ATR S") next bar at market;
-    { Breach du haut de la bougie précédente }
     if Close >= High[1] then
         BuyToCover("Stop Prev High") next bar at market;
 end;
 
-{ ══════════════════════════════════════════════════════════════
-  BLOC 4 — Signaux d'entrée
-  "Close crosses above MySAR" = le prix actuel (tick courant en
-  mode intra-bar) vient de passer au-dessus du SAR.
-  "next bar at market" en mode intra-bar = prochain tick dispo.
-══════════════════════════════════════════════════════════════ }
+{ ══ BLOC 4 — Signaux d'entrée ══ }
 if InSession and MarketPosition = 0 then begin
 
-    if Close crosses above MySAR and Close > MyEMA35 then
+    if LongCross and Close > MyEMA35 then
         Buy("SAR Long") next bar at market;
 
-    if Close crosses below MySAR and Close < MyEMA80 then
+    if ShortCross and Close < MyEMA80 then
         SellShort("SAR Short") next bar at market;
 
 end;
+
+{ ── Mémoriser les valeurs du tick courant pour le prochain tick ── }
+PrevClose = Close;
+PrevSAR   = MySAR;

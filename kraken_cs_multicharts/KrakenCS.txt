@@ -36,7 +36,9 @@ Inputs:
     Force_Close(1624);  { Fermeture forcée HHMM : 16h24 }
 
 Variables:
-    MySAR(0),           { Valeur courante du Parabolic SAR }
+    MySAR(0),           { Valeur courante du Parabolic SAR (sortie) }
+    SARPos(0),          { Direction du SAR : +1 long / -1 short (sortie) }
+    SARDummy(0),        { Valeur de retour de la fonction (ignorée) }
     MyEMA35(0),
     MyEMA80(0),
     MyATR(0),
@@ -46,14 +48,16 @@ Variables:
     IsForceClose(false);
 
 { ── Calcul des indicateurs ────────────────────────────────────
-  Note : ParabolicSAR(Step, MaxAF, 0) — le 3e paramètre est le
-  facteur d'arrondi, laisser à 0.
-  Si votre version de MultiCharts utilise 2 paramètres, retirez le 0.
+  Note : ParabolicSAR(High, Low, AfStep, AfLimit, oParClose, oPosition)
+  Les deux derniers paramètres sont des SORTIES passées par référence :
+    - MySAR  reçoit la valeur du SAR
+    - SARPos reçoit la direction (+1 long / -1 short)
+  La valeur de retour de la fonction est ignorée (SARDummy).
 ──────────────────────────────────────────────────────────────── }
-MySAR   = ParabolicSAR(SAR_Step, SAR_MaxAF, 0);
-MyEMA35 = XAverage(Close, 35);
-MyEMA80 = XAverage(Close, 80);
-MyATR   = AvgTrueRange(ATR_Length);
+SARDummy = ParabolicSAR(High, Low, SAR_Step, SAR_MaxAF, MySAR, SARPos);
+MyEMA35  = XAverage(Close, 35);
+MyEMA80  = XAverage(Close, 80);
+MyATR    = AvgTrueRange(ATR_Length);
 
 { ── Conditions de temps ───────────────────────────────────── }
 InSession    = Time >= Session_Start and Time < Session_End;

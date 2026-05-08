@@ -81,9 +81,9 @@ ShortCross = PrevClose > PrevSAR and Close <= MySAR and MySAR > 0;
 { ══ BLOC 1 — Fermeture forcée à 16h24 ══ }
 if IsForceClose then begin
     if MarketPosition > 0 then
-        Sell("Fin Session L") this bar on close;
+        Sell("Fin Session L") next bar at market;
     if MarketPosition < 0 then
-        BuyToCover("Fin Session S") this bar on close;
+        BuyToCover("Fin Session S") next bar at market;
 end;
 
 { ══ BLOC 2 — Mémoriser le stop à l'entrée en position ══ }
@@ -94,31 +94,31 @@ if MarketPosition < 0 and MarketPosition[1] = 0 then
     ShortStopPrice = EntryPrice + MyATR * ATR_Mult;
 
 { ══ BLOC 3 — Sorties sur position active ══
-  "this bar on close" en mode IOG = exécute au tick courant
-  (pas à la fin de la bougie 1-min). Aucun délai de 1 barre. }
+  "next bar at market" + IOG + Bar Magnifier Tick =
+  fill au prochain tick (~instantané). }
 if MarketPosition > 0 then begin
     if Close <= LongStopPrice then
-        Sell("Stop ATR L") this bar on close;
+        Sell("Stop ATR L") next bar at market;
     if Close <= Low[1] then
-        Sell("Stop Prev Low") this bar on close;
+        Sell("Stop Prev Low") next bar at market;
 end;
 
 if MarketPosition < 0 then begin
     if Close >= ShortStopPrice then
-        BuyToCover("Stop ATR S") this bar on close;
+        BuyToCover("Stop ATR S") next bar at market;
     if Close >= High[1] then
-        BuyToCover("Stop Prev High") this bar on close;
+        BuyToCover("Stop Prev High") next bar at market;
 end;
 
 { ══ BLOC 4 — Signaux d'entrée ══
-  "this bar on close" + IOG = entrée au tick exact du franchissement. }
+  "next bar at market" + IOG = entrée au prochain tick après le cross. }
 if InSession and MarketPosition = 0 then begin
 
     if LongCross and Close > MyEMA35 then
-        Buy("SAR Long") this bar on close;
+        Buy("SAR Long") next bar at market;
 
     if ShortCross and Close < MyEMA80 then
-        SellShort("SAR Short") this bar on close;
+        SellShort("SAR Short") next bar at market;
 
 end;
 
